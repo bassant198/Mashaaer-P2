@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "rooms": {
+      "title": "Room",
+      "description": "Multiplayer private game room for Bassant & Amr",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "roomCode": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "currentChapterId": { "type": "number" },
+        "currentSceneId": { "type": "string" },
+        "status": { 
+          "type": "string",
+          "enum": ["waiting_for_partner", "ready", "in_scene", "scene_revealed", "chapter_completed", "game_finished"]
+        },
+        "endingType": { "type": "string" },
+        "points": { "type": "number" },
+        "players": {
+          "type": "object",
+          "properties": {
+            "p1": { "type": "object" },
+            "p2": { "type": "object" }
+          }
+        }
+      },
+      "required": ["roomId", "roomCode", "createdAt", "currentChapterId", "currentSceneId", "status"]
+    },
+    "answers": {
+      "title": "Private Answer",
+      "description": "Independently submitted answers for a given scene",
+      "type": "object",
+      "properties": {
+        "sceneId": { "type": "string" },
+        "p1Answer": { "type": "string" },
+        "p2Answer": { "type": "string" },
+        "p1Submitted": { "type": "boolean" },
+        "p2Submitted": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["waiting", "revealed"] },
+        "narrativeReaction": { "type": "string" },
+        "pointsAwarded": { "type": "number" }
+      },
+      "required": ["sceneId", "status"]
+    },
+    "messages": {
+      "title": "Private Letter",
+      "description": "Heartfelt letter exchanged in Chapter 4 Scene 4",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderSlot": { "type": "string", "enum": ["p1", "p2"] },
+        "senderName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "revealed": { "type": "boolean" }
+      },
+      "required": ["id", "senderSlot", "content", "revealed"]
+    }
+  }
+}

@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isRoomMember(roomId) {
+      return isAuthenticated() && (
+        request.auth.uid == get(/databases/$(database)/documents/rooms/$(roomId)).data.players.p1.id ||
+        request.auth.uid == get(/databases/$(database)/documents/rooms/$(roomId)).data.players.p2.id
+      );
+    }
+
+    // Rooms Collection
+    match /rooms/{roomId} {
+      // Anyone authenticated can create a room or find by code to join
+      allow create: if isAuthenticated() &&
+        request.resource.data.players.p1.id == request.auth.uid &&
+        request.resource.data.players.p2 == null;
+
+      // Only room members or joining players can read the room summary
+      allow read: if isAuthenticated() && (
+        resource.data.players.p1.id == request.auth.uid ||
+        (resource.data.players.p2 != null && resource.data.players.p2.id == request.auth.uid) ||
+        resource.data.players.p2 == null // allowed for joining check
+      );
+
+      // Join room update: exactly 1 player joining slot p2
+      allow update: if isAuthenticated() && (
+        // Joining as player 2
+        (resource.data.players.p2 == null &&
+         request.resource.data.players.p2.id == request.auth.uid &&
+         request.resource.data.players.p1 == resource.data.players.p1) ||
+        // Status/progress update by authorized player
+        isRoomMember(roomId)
+      );
+
+      // Private Answers subcollection
+      match /answers/{sceneId} {
+        // Read rules:
+        // A player can only read if both have submitted (status == 'revealed'),
+        // OR they are reading their own submitted answer.
+        allow read: if isAuthenticated() && isRoomMember(roomId) && (
+          resource.data.status == 'revealed' ||
+          (resource.data.p1SubmittedBy == request.auth.uid) ||
+          (resource.data.p2SubmittedBy == request.auth.uid)
+        );
+
+        // Submit answer rule: only a room member can submit for their assigned slot
+        allow create, update: if isAuthenticated() && isRoomMember(roomId) && (
+          // p1 submission
+          (request.resource.data.p1SubmittedBy == request.auth.uid &&
+           (resource == null || resource.data.p1SubmittedBy == null || resource.data.p1SubmittedBy == request.auth.uid)) ||
+          // p2 submission
+          (request.resource.data.p2SubmittedBy == request.auth.uid &&
+           (resource == null || resource.data.p2SubmittedBy == null || resource.data.p2SubmittedBy == request.auth.uid))
+        );
+      }
+
+      // Private Messages between Bassant & Amr
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && isRoomMember(roomId) && (
+          resource.data.revealed == true ||
+          resource.data.senderId == request.auth.uid
+        );
+
+        allow create: if isAuthenticated() && isRoomMember(roomId) &&
+          request.resource.data.senderId == request.auth.uid;
+
+        allow update: if isAuthenticated() && isRoomMember(roomId) && (
+          request.resource.data.revealed == true
+        );
+      }
+
+      // Shared Inventory
+      match /inventory/{itemId} {
+        allow read: if isAuthenticated() && isRoomMember(roomId);
+        allow create, update: if isAuthenticated() && isRoomMember(roomId);
+      }
+
+      // Shared Achievements
+      match /achievements/{achId} {
+        allow read: if isAuthenticated() && isRoomMember(roomId);
+        allow create, update: if isAuthenticated() && isRoomMember(roomId);
+      }
+    }
+
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
